@@ -257,7 +257,7 @@
     <string name="top_rated_public_users">Top Rated Public Users</string>
     <string name="more">More</string>
     <string name="top_rated_apps">Top Rated Apps</string>
-    <string name="latest_apps">Latest Apps</string>
+    <string name="featured_apps">Featured Apps</string>
     <string name="latest_public_users">Latest Public Users</string>
     <string name="dialog__migration_title">Toshi Wallet Changes</string>
     <string name="dialog__migration_message">We have made changes to make Toshi compatible with other services - as a result your balance will appear to be reset. As this is only testnet ETH, you don\'t need to take any action. If you do want to recover your balance for any reason, you can read how to do it here: http://developers.tokenbrowser.com/page/migrating-your-token-wallet</string>

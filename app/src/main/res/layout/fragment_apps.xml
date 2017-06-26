@@ -155,7 +155,7 @@
                             android:layout_height="wrap_content"
                             android:textSize="16sp"
                             android:textColor="@color/subTitleTextColor"
-                            android:text="@string/latest_apps"/>
+                            android:text="@string/featured_apps"/>
 
                         <TextView
                             android:id="@+id/more_latest_apps"

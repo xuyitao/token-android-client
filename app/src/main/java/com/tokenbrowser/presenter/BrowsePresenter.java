@@ -85,7 +85,7 @@ public class BrowsePresenter implements Presenter<BrowseActivity> {
                 return this.activity.getString(R.string.top_rated_apps);
             }
             case VIEW_TYPE_LATEST_APPS: {
-                return this.activity.getString(R.string.latest_apps);
+                return this.activity.getString(R.string.featured_apps);
             }
             case VIEW_TYPE_TOP_RATED_PUBLIC_USERS: {
                 return this.activity.getString(R.string.top_rated_public_users);
