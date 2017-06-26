@@ -32,6 +32,7 @@ import com.tokenbrowser.view.adapter.viewholder.SearchAppDappViewHolder;
 import com.tokenbrowser.view.adapter.viewholder.SearchAppHeaderViewHolder;
 import com.tokenbrowser.view.adapter.viewholder.TokenEntityViewHolder;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class SearchAppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
@@ -53,9 +54,9 @@ public class SearchAppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     private OnItemClickListener<App> listener;
     private OnItemClickListener<Dapp> dappLaunchClicked;
 
-    public SearchAppAdapter(final List<App> apps) {
+    public SearchAppAdapter() {
         this.appSearchHeader = new AppSearchHeader();
-        this.apps = apps;
+        this.apps = new ArrayList<>();
         addExtras();
     }
 
@@ -155,6 +156,11 @@ public class SearchAppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     @Override
     public int getItemCount() {
         return this.apps.size();
+    }
+
+    // The list always has one header and that will be the first item in the list
+    public boolean isEmpty() {
+        return this.apps.size() <= 1;
     }
 
     public int getNumberOfApps() {

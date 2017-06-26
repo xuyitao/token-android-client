@@ -43,7 +43,6 @@ import com.tokenbrowser.view.adapter.SearchAppAdapter;
 import com.tokenbrowser.view.custom.HorizontalLineDivider;
 import com.tokenbrowser.view.fragment.toplevel.AppsFragment;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -75,19 +74,12 @@ public class AppsPresenter implements Presenter<AppsFragment>{
         }
 
         initView();
+        tryRerunQuery();
         fetchData();
     }
 
     private void initLongLivingObjects() {
         this.subscriptions = new CompositeSubscription();
-        tryRerunQuery();
-    }
-
-    private void tryRerunQuery() {
-        final String searchQuery = this.fragment.getBinding().search.getText().toString();
-        if (searchQuery.length() > 0) {
-            runSearchQuery(searchQuery);
-        }
     }
 
     private void initView() {
@@ -98,6 +90,14 @@ public class AppsPresenter implements Presenter<AppsFragment>{
         initTopRatedPublicUsersRecyclerView();
         initLatestPublicUsersRecyclerView();
         initSearchView();
+    }
+
+    private void tryRerunQuery() {
+        if (!getSearchAdapter().isEmpty()) return;
+        final String searchQuery = this.fragment.getBinding().search.getText().toString();
+        if (searchQuery.length() > 0) {
+            runSearchQuery(searchQuery);
+        }
     }
 
     private void initClickListeners() {
@@ -116,7 +116,7 @@ public class AppsPresenter implements Presenter<AppsFragment>{
     private void initSearchAppsRecyclerView() {
         final RecyclerView searchAppList = this.fragment.getBinding().searchList;
         searchAppList.setLayoutManager(new LinearLayoutManager(this.fragment.getContext()));
-        final SearchAppAdapter adapter = new SearchAppAdapter(new ArrayList<>())
+        final SearchAppAdapter adapter = new SearchAppAdapter()
                 .setOnItemClickListener(this::handleAppClicked)
                 .setOnDappLaunchListener(this::handleDappLaunch);
         searchAppList.setAdapter(adapter);
@@ -375,12 +375,13 @@ public class AppsPresenter implements Presenter<AppsFragment>{
 
     @Override
     public void onViewDetached() {
-        this.fragment = null;
         this.subscriptions.clear();
+        this.fragment = null;
     }
 
     @Override
     public void onDestroyed() {
+        this.subscriptions = null;
         this.fragment = null;
     }
 }
