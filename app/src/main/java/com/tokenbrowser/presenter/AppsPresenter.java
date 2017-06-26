@@ -64,6 +64,16 @@ public class AppsPresenter implements Presenter<AppsFragment>{
     private CompositeSubscription subscriptions;
     private boolean firstTimeAttaching = true;
 
+    private List<App> topRatedApps;
+    private List<App> featuredApps;
+    private List<User> topRatedUsers;
+    private List<User> latestUsers;
+
+    private int topRatedAppsScrollPosition = 0;
+    private int featuredAppsScrollPosition = 0;
+    private int topRatedUsersScrollPosition = 0;
+    private int latestUsersScrollPosition = 0;
+
     @Override
     public void onViewAttached(AppsFragment view) {
         this.fragment = view;
@@ -143,7 +153,7 @@ public class AppsPresenter implements Presenter<AppsFragment>{
     }
 
     private void initLatestAppsRecycleView() {
-        final RecyclerView topRatedApps = this.fragment.getBinding().latestApps;
+        final RecyclerView topRatedApps = this.fragment.getBinding().featuredApps;
         topRatedApps.setLayoutManager(new LinearLayoutManager(this.fragment.getContext(), LinearLayoutManager.HORIZONTAL, false));
         final HorizontalAdapter adapter = new HorizontalAdapter<App>()
                 .setOnItemClickListener(this::handleAppClicked);
@@ -282,12 +292,21 @@ public class AppsPresenter implements Presenter<AppsFragment>{
 
     private void fetchData() {
         fetchTopRatedApps();
-        fetchLatestApps();
+        fetchFeaturedApps();
         fetchTopRatedPublicUsers();
         fetchLatestPublicUsers();
     }
 
     private void fetchTopRatedApps() {
+        if (this.topRatedApps != null && this.topRatedApps.size() > 0) {
+            handleTopRatedApps(this.topRatedApps);
+            scrollToRetainedPosition(
+                    this.fragment.getBinding().topRatedApps,
+                    this.topRatedAppsScrollPosition
+            );
+            return;
+        }
+
         final Subscription sub =
                 getAppManager()
                 .getTopRatedApps(10)
@@ -303,15 +322,25 @@ public class AppsPresenter implements Presenter<AppsFragment>{
     private void handleTopRatedApps(final List<App> apps) {
         final HorizontalAdapter<App> adapter = (HorizontalAdapter) this.fragment.getBinding().topRatedApps.getAdapter();
         adapter.setItems(apps);
+        this.topRatedApps = apps;
     }
 
-    private void fetchLatestApps() {
+    private void fetchFeaturedApps() {
+        if (this.featuredApps != null && this.featuredApps.size() > 0) {
+            handleFeaturedApps(this.featuredApps);
+            scrollToRetainedPosition(
+                    this.fragment.getBinding().featuredApps,
+                    this.featuredAppsScrollPosition
+            );
+            return;
+        }
+
         final Subscription sub =
                 getAppManager()
                 .getLatestApps(10)
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(
-                        this::handleLatestApps,
+                        this::handleFeaturedApps,
                         throwable -> LogUtil.exception(getClass(), "Error while fetching top rated apps", throwable)
                 );
 
@@ -325,12 +354,23 @@ public class AppsPresenter implements Presenter<AppsFragment>{
                 .getAppsManager();
     }
 
-    private void handleLatestApps(final List<App> apps) {
-        final HorizontalAdapter<App> adapter = (HorizontalAdapter) this.fragment.getBinding().latestApps.getAdapter();
+    private void handleFeaturedApps(final List<App> apps) {
+        final HorizontalAdapter<App> adapter = (HorizontalAdapter) this.fragment.getBinding().featuredApps.getAdapter();
         adapter.setItems(apps);
+        this.featuredApps = apps;
+
     }
 
     private void fetchTopRatedPublicUsers() {
+        if (this.topRatedUsers != null && this.topRatedUsers.size() > 0) {
+            handleTopRatedPublicUser(this.topRatedUsers);
+            scrollToRetainedPosition(
+                    this.fragment.getBinding().topRatedPublicUsers,
+                    this.topRatedUsersScrollPosition
+            );
+            return;
+        }
+
         final Subscription sub =
                 getUserManager()
                 .getTopRatedPublicUsers(10)
@@ -346,9 +386,19 @@ public class AppsPresenter implements Presenter<AppsFragment>{
     private void handleTopRatedPublicUser(final List<User> users) {
         final HorizontalAdapter<User> adapter = (HorizontalAdapter) this.fragment.getBinding().topRatedPublicUsers.getAdapter();
         adapter.setItems(users);
+        this.topRatedUsers = users;
     }
 
     private void fetchLatestPublicUsers() {
+        if (this.latestUsers != null && this.latestUsers.size() > 0) {
+            handleLatestPublicUser(this.latestUsers);
+            scrollToRetainedPosition(
+                    this.fragment.getBinding().latestPublicUsers,
+                    this.latestUsersScrollPosition
+            );
+            return;
+        }
+
         final Subscription sub =
                 getUserManager()
                 .getLatestPublicUsers(10)
@@ -364,6 +414,7 @@ public class AppsPresenter implements Presenter<AppsFragment>{
     private void handleLatestPublicUser(final List<User> users) {
         final HorizontalAdapter<User> adapter = (HorizontalAdapter) this.fragment.getBinding().latestPublicUsers.getAdapter();
         adapter.setItems(users);
+        this.latestUsers = users;
     }
 
     private UserManager getUserManager() {
@@ -373,10 +424,26 @@ public class AppsPresenter implements Presenter<AppsFragment>{
                 .getUserManager();
     }
 
+    private void scrollToRetainedPosition(final RecyclerView recyclerView, final int position) {
+        recyclerView.getLayoutManager().scrollToPosition(position);
+    }
+
     @Override
     public void onViewDetached() {
+        setScrollState();
         this.subscriptions.clear();
         this.fragment = null;
+    }
+
+    private void setScrollState() {
+        final LinearLayoutManager topRatedAppsLayoutManager = (LinearLayoutManager) this.fragment.getBinding().topRatedApps.getLayoutManager();
+        this.topRatedAppsScrollPosition = topRatedAppsLayoutManager.findFirstCompletelyVisibleItemPosition();
+        final LinearLayoutManager featuredAppsLayoutManager = (LinearLayoutManager) this.fragment.getBinding().featuredApps.getLayoutManager();
+        this.featuredAppsScrollPosition = featuredAppsLayoutManager.findFirstCompletelyVisibleItemPosition();
+        final LinearLayoutManager topRatedYsersLayoutManager = (LinearLayoutManager) this.fragment.getBinding().topRatedPublicUsers.getLayoutManager();
+        this.topRatedUsersScrollPosition = topRatedYsersLayoutManager.findFirstCompletelyVisibleItemPosition();
+        final LinearLayoutManager featuredUsersLayoutManager = (LinearLayoutManager) this.fragment.getBinding().latestPublicUsers.getLayoutManager();
+        this.latestUsersScrollPosition = featuredUsersLayoutManager.findFirstCompletelyVisibleItemPosition();
     }
 
     @Override

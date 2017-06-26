@@ -174,7 +174,7 @@
 
                     <!-- Latest apps -->
                     <android.support.v7.widget.RecyclerView
-                        android:id="@+id/latest_apps"
+                        android:id="@+id/featured_apps"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:minHeight="143dp"
