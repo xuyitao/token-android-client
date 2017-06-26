@@ -74,6 +74,7 @@
                 android:id="@+id/create_new_account"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:padding="10dp"
                 android:gravity="center_horizontal"
                 android:textAllCaps="true"
                 android:textColor="@color/textColorContrast"
@@ -83,12 +84,13 @@
 
             <android.support.v4.widget.Space
                 android:layout_width="0dp"
-                android:layout_height="23dp" />
+                android:layout_height="3dp" />
 
             <TextView
                 android:id="@+id/sign_in"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:padding="10dp"
                 android:textAllCaps="true"
                 android:textColor="@color/textColorContrast"
                 android:textSize="14sp"
@@ -97,7 +99,7 @@
 
             <android.support.v4.widget.Space
                 android:layout_width="0dp"
-                android:layout_height="45dp" />
+                android:layout_height="35dp" />
 
         </LinearLayout>
 
