@@ -26,17 +26,24 @@ import android.view.View;
 public class HorizontalLineDivider extends RecyclerView.ItemDecoration {
 
     private final Paint paint;
-    private int leftPadding;
+    private int leftPadding = 0;
+    private int rightPadding = 0;
     private int dividerHeight = 6;
     private boolean isTopDivider = false;
+    private boolean skipFirst = false;
 
     public HorizontalLineDivider(final int color) {
         this.paint = new Paint();
         this.paint.setColor(color);
     }
 
-    public HorizontalLineDivider setLeftPadding(final int padding) {
-        this.leftPadding = padding;
+    public HorizontalLineDivider setLeftPadding(final int leftPadding) {
+        this.leftPadding = leftPadding;
+        return this;
+    }
+
+    public HorizontalLineDivider setRightPadding(final int rightPadding) {
+        this.rightPadding = rightPadding;
         return this;
     }
 
@@ -50,20 +57,25 @@ public class HorizontalLineDivider extends RecyclerView.ItemDecoration {
         return this;
     }
 
+    public HorizontalLineDivider setSkipFirst(final boolean skipFirst) {
+        this.skipFirst = skipFirst;
+        return this;
+    }
+
     @Override
     public void onDraw(final Canvas canvas,
                        final RecyclerView parent,
                        final RecyclerView.State state) {
 
-        final int dividerLeft = parent.getPaddingLeft() + leftPadding;
-        final int dividerRight = parent.getWidth() - parent.getPaddingRight();
+        final int dividerLeft = parent.getPaddingLeft() + this.leftPadding;
+        final int dividerRight = parent.getWidth() - parent.getPaddingRight() - this.rightPadding;
         final int childCount = parent.getChildCount();
 
-        for (int i = 0; i < childCount - (isTopDivider ? 0 : 1); i++) {
+        for (int i = this.skipFirst ? 1 : 0; i < childCount - (this.isTopDivider ? 0 : 1); i++) {
             final View child = parent.getChildAt(i);
             final RecyclerView.LayoutParams params = (RecyclerView.LayoutParams) child.getLayoutParams();
 
-            final int dividerTop = isTopDivider
+            final int dividerTop = this.isTopDivider
                     ? child.getTop() - params.topMargin
                     : child.getBottom() + params.bottomMargin - (this.dividerHeight / 2);
             final int dividerBottom = dividerTop + (this.dividerHeight / 2);

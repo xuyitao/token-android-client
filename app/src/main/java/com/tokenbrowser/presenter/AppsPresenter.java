@@ -18,12 +18,14 @@
 package com.tokenbrowser.presenter;
 
 import android.content.Intent;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Patterns;
 import android.view.View;
 
 import com.jakewharton.rxbinding.widget.RxTextView;
+import com.tokenbrowser.R;
 import com.tokenbrowser.manager.AppsManager;
 import com.tokenbrowser.manager.UserManager;
 import com.tokenbrowser.model.local.Dapp;
@@ -38,6 +40,7 @@ import com.tokenbrowser.view.activity.ViewUserActivity;
 import com.tokenbrowser.view.activity.WebViewActivity;
 import com.tokenbrowser.view.adapter.HorizontalAdapter;
 import com.tokenbrowser.view.adapter.SearchAppAdapter;
+import com.tokenbrowser.view.custom.HorizontalLineDivider;
 import com.tokenbrowser.view.fragment.toplevel.AppsFragment;
 
 import java.util.ArrayList;
@@ -117,6 +120,17 @@ public class AppsPresenter implements Presenter<AppsFragment>{
                 .setOnItemClickListener(this::handleAppClicked)
                 .setOnDappLaunchListener(this::handleDappLaunch);
         searchAppList.setAdapter(adapter);
+
+        final int dividerLeftPadding = fragment.getResources().getDimensionPixelSize(R.dimen.avatar_size_small)
+                + fragment.getResources().getDimensionPixelSize(R.dimen.activity_horizontal_margin)
+                + fragment.getResources().getDimensionPixelSize(R.dimen.list_item_avatar_margin);
+        final int dividerRightPadding = fragment.getResources().getDimensionPixelSize(R.dimen.activity_horizontal_margin);
+        final HorizontalLineDivider lineDivider =
+                new HorizontalLineDivider(ContextCompat.getColor(this.fragment.getContext(), R.color.divider))
+                        .setRightPadding(dividerRightPadding)
+                        .setLeftPadding(dividerLeftPadding)
+                        .setSkipFirst(true);
+        searchAppList.addItemDecoration(lineDivider);
     }
 
     private void iniTopRatedAppsRecycleView() {
