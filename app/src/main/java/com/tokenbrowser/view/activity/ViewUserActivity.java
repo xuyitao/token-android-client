@@ -97,13 +97,12 @@ public class ViewUserActivity extends BasePresenterActivity<ViewUserPresenter, V
     public boolean onCreateOptionsMenu(final Menu menu) {
         getMenuInflater().inflate(R.menu.profile, menu);
         this.menu = menu;
-        tryCreateOptionsMenu();
-        return true;
+        return tryCreateOptionsMenu();
     }
 
-    private void tryCreateOptionsMenu() {
-        if (this.presenter == null || this.menu == null) return;
-        this.presenter.createOptionsMenu();
+    private boolean tryCreateOptionsMenu() {
+        if (this.presenter == null || this.menu == null) return false;
+        return this.presenter.shouldCreateOptionsMenu();
     }
 
     @Override

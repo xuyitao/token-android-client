@@ -346,8 +346,24 @@ public final class ViewUserPresenter implements
         setBlockedMenuItem();
     }
 
-    public void createOptionsMenu() {
+    public boolean shouldCreateOptionsMenu() {
+        final boolean isLocalUser = getLocalUser().getTokenId().equals(this.userAddress);
+        if (isLocalUser) {
+            return false;
+        }
+
         isUserBlocked();
+        return true;
+    }
+
+    private User getLocalUser() {
+        return BaseApplication
+                .get()
+                .getTokenManager()
+                .getUserManager()
+                .getCurrentUser()
+                .toBlocking()
+                .value();
     }
 
     private void isUserBlocked() {
