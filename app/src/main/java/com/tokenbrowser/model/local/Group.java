@@ -42,6 +42,12 @@ import rx.Single;
 import rx.schedulers.Schedulers;
 
 public class Group extends RealmObject {
+
+    // This can be anything except 40/42, it needs to not collide with
+    // the length of a public address as we distinguish groups from individuals
+    // based on the length of IDs
+    public static final int GROUP_ID_LENGTH = 32;
+
     @PrimaryKey
     private String id;
     private String title;
@@ -124,7 +130,7 @@ public class Group extends RealmObject {
 
     private String generateId() {
         try {
-            byte[] groupId = new byte[16];
+            byte[] groupId = new byte[GROUP_ID_LENGTH / 2];
             SecureRandom.getInstance("SHA1PRNG").nextBytes(groupId);
             return Hex.toHexString(groupId);
         } catch (final NoSuchAlgorithmException e) {

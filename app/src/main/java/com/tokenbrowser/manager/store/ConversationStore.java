@@ -197,9 +197,11 @@ public class ConversationStore {
         CONVERSATION_CHANGED_SUBJECT.onNext(conversation);
     }
 
-    public Conversation loadByThreadId(final String threadId) {
-        resetUnreadMessageCounter(threadId);
-        return loadWhere(THREAD_ID_FIELD, threadId);
+    public Single<Conversation> loadByThreadId(final String threadId) {
+        return Single.fromCallable(() -> {
+            resetUnreadMessageCounter(threadId);
+            return loadWhere(THREAD_ID_FIELD, threadId);
+        });
     }
 
     private Conversation loadWhere(final String fieldName, final String value) {

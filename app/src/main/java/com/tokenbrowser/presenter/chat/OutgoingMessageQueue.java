@@ -18,8 +18,8 @@
 package com.tokenbrowser.presenter.chat;
 
 
+import com.tokenbrowser.model.local.Recipient;
 import com.tokenbrowser.model.sofa.SofaMessage;
-import com.tokenbrowser.model.local.User;
 import com.tokenbrowser.util.LogUtil;
 import com.tokenbrowser.view.BaseApplication;
 
@@ -33,17 +33,17 @@ import rx.subjects.PublishSubject;
 import rx.subscriptions.CompositeSubscription;
 
 /**
- * A pipeline for sending sofa messages to a remote user.
+ * A pipeline for sending sofa messages to a remote recipient.
  * It will take care of queuing up and sending messages if messages are sent before
  * the queue has been initialised.
- * It will suppress attempts to double subscribe; and will handle swapping the user
+ * It will suppress attempts to double subscribe; and will handle swapping the recipient
  * in the middle of its lifetime.
  * Example usage:
  * <pre> {@code
 
 OutgoingMessageQueue queue = new OutgoingMessageQueue();
 queue.send(sofaMessage); // This message will be sent after initialisation
-queue.init(user); // Let the queue know who these messages should be sent to
+queue.init(recipient); // Let the queue know who these messages should be sent to
 queue.send(sofaMessage); // This message will be sent immediately.
 queue.clear(); // Cleans up all state, and unsubscribes everything.
 } </pre>
@@ -53,12 +53,12 @@ queue.clear(); // Cleans up all state, and unsubscribes everything.
     private final PublishSubject<SofaMessage> messagesReadyForSending;
     private final List<SofaMessage> preInitMessagesQueue;
     private final CompositeSubscription subscriptions;
-    private User remoteUser;
+    private Recipient recipient;
 
     /**
      * Constructs OutgoingMessageQueue.
      * <p>
-     * Nothing will be sent until {@link #init(User)} has been called, but it is possible
+     * Nothing will be sent until {@link #init(Recipient)} has been called, but it is possible
      * to queue messages already via {@link #send(SofaMessage)}.
      *
      * @return the constructed OutgoingMessageQueue
@@ -70,11 +70,11 @@ queue.clear(); // Cleans up all state, and unsubscribes everything.
     }
 
     /**
-     * Sends or queues a message that may eventually be sent to a remote user
+     * Sends or queues a message that may eventually be sent to a remote recipient
      * <p>
-     * If {@link #init(User)} has already been called then the message will be sent to the remote user
+     * If {@link #init(Recipient)} has already been called then the message will be sent to the remote recipient
      * immediately.
-     * If {@link #init(User)} has not been called then the message will be queued until {@link #init(User)}
+     * If {@link #init(Recipient)} has not been called then the message will be queued until {@link #init(Recipient)}
      * is called.
      *
      * @param message
@@ -83,7 +83,7 @@ queue.clear(); // Cleans up all state, and unsubscribes everything.
     /* package */ void send(final SofaMessage message) {
         // If we already know who to send the message to; send it.
         // If not, queue it until we know where to send the message.
-        if (this.remoteUser != null) {
+        if (this.recipient != null) {
             this.messagesReadyForSending.onNext(message);
         } else {
             this.preInitMessagesQueue.add(message);
@@ -98,36 +98,36 @@ queue.clear(); // Cleans up all state, and unsubscribes everything.
      */
     /* package */ void clear() {
         this.subscriptions.clear();
-        this.remoteUser = null;
+        this.recipient = null;
     }
 
     /**
-     * Initialises OutgoingMessageQueue with the user who will receive messages
+     * Initialises OutgoingMessageQueue with the recipient who will receive messages
      * <p>
      * Any messages that have already been queued by previous calls to {@link #send(SofaMessage)}
      * will be processed in the order they were sent. Any new calls to {@link #send(SofaMessage)}
-     * will send to the remote user immediately (though after the queue has been processed)
+     * will send to the remote recipient immediately (though after the queue has been processed)
      *
      * If this method is called multiple times it will not result in several subscriptions.
-     * If the method is called a second time with the same User then nothing changes.
-     * If the method is called a second time with a different user then messages will no longer be
-     * sent to the first user; all messages will be routed to the second user.
+     * If the method is called a second time with the same Recipient then nothing changes.
+     * If the method is called a second time with a different recipient then messages will no longer be
+     * sent to the first recipient; all messages will be routed to the second recipient.
      *
-     * @param remoteUser
-     *              The user who the messges will be sent to.
+     * @param recipient
+     *              The Recipient who the messages will be sent to.
      */
-    /* package */ void init(final User remoteUser) {
-        if (remoteUser == this.remoteUser) {
+    /* package */ void init(final Recipient recipient) {
+        if (recipient == this.recipient) {
             LogUtil.print(getClass(), "Suppressing a double subscription");
             return;
         }
 
-        if (this.remoteUser != null) {
-            LogUtil.print(getClass(), "Subscribing to a different user, so clearing previous subscriptions. Was this intentional?");
+        if (this.recipient != null) {
+            LogUtil.print(getClass(), "Subscribing to a different recipient, so clearing previous subscriptions. Was this intentional?");
             this.clear();
         }
 
-        this.remoteUser = remoteUser;
+        this.recipient = recipient;
         attachMessagesReadyForSendingSubscriber();
         processPreInitMessagesQueue();
     }
@@ -146,10 +146,23 @@ queue.clear(); // Cleans up all state, and unsubscribes everything.
     }
 
     private void sendAndSaveMessage(final SofaMessage outgoingSofaMessage) {
+        if (this.recipient.isGroup()) {
+            sendAndSaveGroupMessage(outgoingSofaMessage);
+        } else {
+            sendAndSaveUserMessage(outgoingSofaMessage);
+        }
+
+    }
+
+    private void sendAndSaveGroupMessage(final SofaMessage outgoingSofaMessage) {
+        // Todo - send to group
+    }
+
+    private void sendAndSaveUserMessage(final SofaMessage outgoingSofaMessage) {
         BaseApplication
                 .get()
                 .getSofaMessageManager()
-                .sendAndSaveMessage(this.remoteUser, outgoingSofaMessage);
+                .sendAndSaveMessage(this.recipient.getUser(), outgoingSofaMessage);
     }
 
     private void handleSendingMessageError(final Throwable throwable) {

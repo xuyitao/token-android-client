@@ -37,6 +37,7 @@ import com.tokenbrowser.crypto.HDWallet;
 import com.tokenbrowser.exception.PermissionException;
 import com.tokenbrowser.model.local.ActivityResultHolder;
 import com.tokenbrowser.model.local.Conversation;
+import com.tokenbrowser.model.local.Group;
 import com.tokenbrowser.model.local.PermissionResultHolder;
 import com.tokenbrowser.model.local.Recipient;
 import com.tokenbrowser.model.local.User;
@@ -76,6 +77,8 @@ import rx.schedulers.Schedulers;
 import rx.subjects.PublishSubject;
 import rx.subscriptions.CompositeSubscription;
 
+import static com.tokenbrowser.model.local.Group.GROUP_ID_LENGTH;
+
 
 public final class ChatPresenter implements Presenter<ChatActivity> {
 
@@ -86,24 +89,22 @@ public final class ChatPresenter implements Presenter<ChatActivity> {
     private static final int CONFIRM_ATTACHMENT = 5;
     private static final String CAPTURE_FILENAME = "caputureImageFilename";
 
-    private ChatActivity activity;
     private boolean firstViewAttachment = true;
+    private boolean isConversationLoaded = false;
+    private ChatActivity activity;
+    private ChatNavigation chatNavigation;
     private CompositeSubscription subscriptions;
-
-    private MessageAdapter messageAdapter;
-    private User remoteUser;
-    private SpeedyLinearLayoutManager layoutManager;
     private HDWallet userWallet;
+    private int lastVisibleMessagePosition;
+    private OutgoingMessageQueue outgoingMessageQueue;
+    private MessageAdapter messageAdapter;
     private Pair<PublishSubject<SofaMessage>, PublishSubject<SofaMessage>> chatObservables;
+    private PendingTransactionsObservable pendingTransactionsObservable;
+    private Recipient recipient;
+    private SpeedyLinearLayoutManager layoutManager;
+    private String captureImageFilename;
     private Subscription newMessageSubscription;
     private Subscription updatedMessageSubscription;
-    private OutgoingMessageQueue outgoingMessageQueue;
-    private PendingTransactionsObservable pendingTransactionsObservable;
-    private ChatNavigation chatNavigation;
-
-    private boolean isConversationLoaded = false;
-    private String captureImageFilename;
-    private int lastVisibleMessagePosition;
 
     @Override
     public void onViewAttached(final ChatActivity activity) {
@@ -156,22 +157,23 @@ public final class ChatPresenter implements Presenter<ChatActivity> {
             final @PaymentRequest.State int newState) {
 
         final Subscription sub =
-                getRemoteUser()
-                .subscribe(remoteUser ->
-                        handleUpdatePaymentRequestState(remoteUser, existingMessage, newState),
+                getRecipient()
+                .subscribe(recipient ->
+                        handleUpdatePaymentRequestState(recipient, existingMessage, newState),
                         this::handleError
                 );
 
         this.subscriptions.add(sub);
     }
 
-    private void handleUpdatePaymentRequestState(final User remoteUser,
+    private void handleUpdatePaymentRequestState(final Recipient recipient,
                                                  final SofaMessage existingMessage,
                                                  final @PaymentRequest.State int newState) {
+        // Todo - Handle groups
         BaseApplication
                 .get()
                 .getTransactionManager()
-                .updatePaymentRequestState(remoteUser, existingMessage, newState);
+                .updatePaymentRequestState(recipient.getUser(), existingMessage, newState);
     }
     
     private void handleUsernameClicked(final String searchedForUsername, final User user) {
@@ -203,8 +205,8 @@ public final class ChatPresenter implements Presenter<ChatActivity> {
         initAdapterAnimation();
         initRecyclerView();
         initControlView();
-        processIntentData();
-        initLoadingSpinner(this.remoteUser);
+        loadOrUseRecipient();
+        initLoadingSpinner();
     }
 
     private void initChatNavigation() {
@@ -372,23 +374,25 @@ public final class ChatPresenter implements Presenter<ChatActivity> {
         this.activity.getBinding().messagesList.scrollToPosition(this.messageAdapter.getItemCount() - 1);
     }
 
-    private void processIntentData() {
-        if (this.remoteUser == null) {
-            final String threadId = this.activity.getIntent().getStringExtra(ChatActivity.EXTRA__THREAD_ID);
-            fetchUserFromAddress(threadId);
+    private void loadOrUseRecipient() {
+        if (this.recipient == null) {
+            loadRecipient();
             return;
         }
 
         updateUiFromRemoteUser();
         processPaymentFromIntent();
-        this.outgoingMessageQueue.init(this.remoteUser);
-        initPendingTransactionsObservable(this.remoteUser);
+        this.outgoingMessageQueue.init(this.recipient);
+        initPendingTransactionsObservable();
     }
 
-    private void initPendingTransactionsObservable(final User user) {
+    private void initPendingTransactionsObservable() {
+        // Todo - handle groups
+        if (this.recipient.isGroup()) return;
+
         final Subscription subscription =
                 this.pendingTransactionsObservable
-                    .init(user)
+                    .init(this.recipient.getUser())
                     .subscribeOn(Schedulers.io())
                     .observeOn(AndroidSchedulers.mainThread())
                     .subscribe(
@@ -399,31 +403,67 @@ public final class ChatPresenter implements Presenter<ChatActivity> {
         this.subscriptions.add(subscription);
     }
 
-    private void fetchUserFromAddress(final String remoteUserAddress) {
-        final Subscription sub =
-                BaseApplication
+    private void loadRecipient() {
+        final String threadId = this.activity.getIntent().getStringExtra(ChatActivity.EXTRA__THREAD_ID);
+        if (isGroup(threadId)) {
+            loadGroupRecipient(threadId);
+        } else {
+            loadUserRecipient(threadId);
+        }
+    }
+
+    private void loadGroupRecipient(final String groupId) {
+        final Subscription sub = BaseApplication
                 .get()
                 .getRecipientManager()
-                .getUserFromTokenId(remoteUserAddress)
+                .getGroupFromId(groupId)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(
-                        this::handleUserLoaded,
-                        this::handleUserFetchFailed
+                        this::handleGroupLoaded,
+                        this::handleRecipientLoadFailed
                 );
 
         this.subscriptions.add(sub);
     }
 
+    private void loadUserRecipient(final String tokenId) {
+        final Subscription sub = BaseApplication
+                .get()
+                .getRecipientManager()
+                .getUserFromTokenId(tokenId)
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
+                        this::handleUserLoaded,
+                        this::handleRecipientLoadFailed
+                );
+
+        this.subscriptions.add(sub);
+    }
+
+    private boolean isGroup(final String threadId) {
+        // Todo - check compatability with other clients (i.e. iOS)
+        return threadId.length() == GROUP_ID_LENGTH;
+    }
+
+    private void handleGroupLoaded(final Group group) {
+        handleRecipientLoaded(new Recipient(group));
+    }
+
     private void handleUserLoaded(final User user) {
-        this.remoteUser = user;
-        if (this.remoteUser != null) {
+        handleRecipientLoaded(new Recipient(user));
+    }
+
+    private void handleRecipientLoaded(final Recipient recipient) {
+        this.recipient = recipient;
+        if (this.recipient != null) {
             if (shouldPlayScanSounds()) SoundManager.getInstance().playSound(SoundManager.FOUND_USER);
-            processIntentData();
+            loadOrUseRecipient();
         }
     }
 
-    private void handleUserFetchFailed(final Throwable throwable) {
+    private void handleRecipientLoadFailed(final Throwable throwable) {
         Toast.makeText(BaseApplication.get(), R.string.error__app_loading, Toast.LENGTH_LONG).show();
         if (this.activity != null) {
             if (shouldPlayScanSounds()) SoundManager.getInstance().playSound(SoundManager.SCAN_ERROR);
@@ -438,13 +478,13 @@ public final class ChatPresenter implements Presenter<ChatActivity> {
     }
 
     private void updateUiFromRemoteUser() {
-        initToolbar(this.remoteUser);
-        initChatMessageStore(this.remoteUser);
-        initLoadingSpinner(this.remoteUser);
+        initToolbar();
+        initChatMessageStore();
+        initLoadingSpinner();
     }
 
     private void processPaymentFromIntent() {
-        if (this.remoteUser == null) return;
+        if (this.recipient == null) return;
 
         final String value = this.activity.getIntent().getStringExtra(ChatActivity.EXTRA__ETH_AMOUNT);
         final int paymentAction = this.activity.getIntent().getIntExtra(ChatActivity.EXTRA__PAYMENT_ACTION, 0);
@@ -465,19 +505,20 @@ public final class ChatPresenter implements Presenter<ChatActivity> {
 
     private void sendPaymentWithValue(final String value) {
         final Subscription sub =
-                getRemoteUser()
+                getRecipient()
                 .subscribe(
-                        remoteUser -> sendPayment(remoteUser, value),
+                        recipient -> sendPayment(recipient, value),
                         this::handleError
                 );
 
         this.subscriptions.add(sub);
     }
 
-    private void sendPayment(final User remoteUser, final String value) {
+    private void sendPayment(final Recipient recipient, final String value) {
+        // Todo - handle groups
         BaseApplication.get()
                 .getTransactionManager()
-                .sendPayment(remoteUser, value);
+                .sendPayment(recipient.getUser(), value);
     }
 
     private void sendPaymentRequestWithValue(final String value) {
@@ -497,10 +538,10 @@ public final class ChatPresenter implements Presenter<ChatActivity> {
         this.outgoingMessageQueue.send(message);
     }
 
-    private void initLoadingSpinner(final User remoteUser) {
+    private void initLoadingSpinner() {
         if (this.activity == null) return;
-        this.activity.getBinding().loadingViewContainer.setVisibility(remoteUser == null ? View.VISIBLE : View.GONE);
-        if (remoteUser == null) {
+        this.activity.getBinding().loadingViewContainer.setVisibility(this.recipient == null ? View.VISIBLE : View.GONE);
+        if (this.recipient == null) {
             final Animation rotateAnimation = AnimationUtils.loadAnimation(this.activity, R.anim.rotate);
             this.activity.getBinding().loadingView.startAnimation(rotateAnimation);
         } else {
@@ -508,11 +549,11 @@ public final class ChatPresenter implements Presenter<ChatActivity> {
         }
     }
 
-    private void initToolbar(final User remoteUser) {
-        this.activity.getBinding().title.setText(remoteUser.getDisplayName());
+    private void initToolbar() {
+        this.activity.getBinding().title.setText(this.recipient.getDisplayName());
         this.activity.getBinding().closeButton.setOnClickListener(this::handleBackButtonClicked);
         this.activity.getBinding().avatar.setOnClickListener(__ -> viewRemoteUserProfile());
-        ImageUtil.load(remoteUser.getAvatar(), this.activity.getBinding().avatar);
+        ImageUtil.load(this.recipient.getAvatar(), this.activity.getBinding().avatar);
     }
 
     private void handleBackButtonClicked(final View v) {
@@ -521,12 +562,13 @@ public final class ChatPresenter implements Presenter<ChatActivity> {
     }
 
     private void viewRemoteUserProfile() {
+        // Todo -- handle groups?
         final Subscription sub =
-                getRemoteUser()
+                getRecipient()
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(
-                        remoteUser -> viewProfile(remoteUser.getTokenId()),
+                        remoteUser -> viewProfile(recipient.getThreadId()),
                         this::handleError
                 );
 
@@ -537,21 +579,20 @@ public final class ChatPresenter implements Presenter<ChatActivity> {
         this.chatNavigation.startProfileActivity(this.activity, ownerAddress);
     }
 
-    // Todo - supress for groups as well
-    private void initChatMessageStore(final User remoteUser) {
-        ChatNotificationManager.suppressNotificationsForConversation(remoteUser.getTokenId());
+    private void initChatMessageStore() {
+        ChatNotificationManager.suppressNotificationsForConversation(this.recipient.getThreadId());
 
         this.chatObservables =
                 BaseApplication
                 .get()
                 .getSofaMessageManager()
-                .registerForConversationChanges(remoteUser.getTokenId());
+                .registerForConversationChanges(this.recipient.getThreadId());
 
         final Subscription conversationLoadedSub =
                 BaseApplication
                 .get()
                 .getSofaMessageManager()
-                .loadConversation(remoteUser.getTokenId())
+                .loadConversation(this.recipient.getThreadId())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(
                         this::handleConversationLoaded,
@@ -574,9 +615,7 @@ public final class ChatPresenter implements Presenter<ChatActivity> {
     }
 
     private void initConversationRecipient() {
-        // Todo. Temporary - this will be fixed as part of Group chat work.
-        final Recipient recipient = new Recipient(this.remoteUser);
-        this.messageAdapter.setRecipient(recipient);
+        this.messageAdapter.setRecipient(this.recipient);
     }
 
     private void initConversationMessages(final Conversation conversation) {
@@ -593,7 +632,7 @@ public final class ChatPresenter implements Presenter<ChatActivity> {
     }
 
     private void tryInitAppConversation() {
-        if (!this.remoteUser.isApp()) return;
+        if (this.recipient.isGroup() || !this.recipient.getUser().isApp()) return;
 
         final Message message = new Message().setBody("");
         final String messageBody = SofaAdapters.get().toJson(message);
@@ -602,7 +641,7 @@ public final class ChatPresenter implements Presenter<ChatActivity> {
         BaseApplication
                 .get()
                 .getSofaMessageManager()
-                .sendMessage(this.remoteUser, sofaMessage);
+                .sendMessage(this.recipient.getUser(), sofaMessage);
     }
 
     private void initMessageObservables() {
@@ -878,13 +917,13 @@ public final class ChatPresenter implements Presenter<ChatActivity> {
                 .value();
     }
 
-    private Single<User> getRemoteUser() {
+    private Single<Recipient> getRecipient() {
         return Single
                 .fromCallable(() -> {
-                    while (remoteUser == null) {
+                    while (this.recipient == null) {
                         Thread.sleep(100);
                     }
-                    return remoteUser;
+                    return this.recipient;
                 })
                 .subscribeOn(Schedulers.io())
                 .observeOn(Schedulers.io());

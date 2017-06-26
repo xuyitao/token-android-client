@@ -21,9 +21,11 @@ package com.tokenbrowser.manager;
 import com.tokenbrowser.manager.network.IdService;
 import com.tokenbrowser.manager.store.BlockedUserStore;
 import com.tokenbrowser.manager.store.ContactStore;
+import com.tokenbrowser.manager.store.GroupStore;
 import com.tokenbrowser.manager.store.UserStore;
 import com.tokenbrowser.model.local.BlockedUser;
 import com.tokenbrowser.model.local.Contact;
+import com.tokenbrowser.model.local.Group;
 import com.tokenbrowser.model.local.Report;
 import com.tokenbrowser.model.local.User;
 import com.tokenbrowser.model.network.ServerTime;
@@ -41,6 +43,7 @@ import rx.schedulers.Schedulers;
 public class RecipientManager {
 
     private ContactStore contactStore;
+    private GroupStore groupStore;
     private UserStore userStore;
     private BlockedUserStore blockedUserStore;
 
@@ -50,6 +53,7 @@ public class RecipientManager {
 
     private void initDatabases() {
         this.contactStore = new ContactStore();
+        this.groupStore = new GroupStore();
         this.userStore = new UserStore();
         this.blockedUserStore = new BlockedUserStore();
     }
@@ -57,6 +61,13 @@ public class RecipientManager {
     public Single<User> getUserFromUsername(final String username) {
         // It's the same endpoint
         return getUserFromTokenId(username);
+    }
+
+    public Single<Group> getGroupFromId(final String id) {
+        return this.groupStore.loadForId(id)
+                .subscribeOn(Schedulers.io())
+                .observeOn(Schedulers.io())
+                .doOnError(t -> LogUtil.exception(getClass(), "getGroupFromId", t));
     }
 
     public Single<User> getUserFromTokenId(final String tokenId) {

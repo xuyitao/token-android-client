@@ -167,8 +167,7 @@ public final class SofaMessageManager {
     }
 
     public final Single<Conversation> loadConversation(final String threadId) {
-        return Single
-                .fromCallable(() -> conversationStore.loadByThreadId(threadId))
+        return this.conversationStore.loadByThreadId(threadId)
                 .subscribeOn(Schedulers.io());
     }
 
