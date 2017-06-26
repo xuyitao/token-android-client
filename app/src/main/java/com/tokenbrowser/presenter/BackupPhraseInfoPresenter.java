@@ -45,7 +45,8 @@ public class BackupPhraseInfoPresenter implements Presenter<BackupPhraseInfoActi
     }
 
     private void initContinueButton() {
-        this.activity.getBinding().continueBtn.setClickable(false);
+        final boolean isChecked = this.activity.getBinding().radioButtonUnderstand.isChecked();
+        this.activity.getBinding().continueBtn.setClickable(isChecked);
     }
 
     private void handleContainerChecked(final View view) {
