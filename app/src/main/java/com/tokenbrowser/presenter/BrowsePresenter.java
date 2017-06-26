@@ -37,6 +37,8 @@ import com.tokenbrowser.view.activity.ViewUserActivity;
 import com.tokenbrowser.view.adapter.BrowseAdapter;
 import com.tokenbrowser.view.custom.HorizontalLineDivider;
 
+import java.util.List;
+
 import rx.Subscription;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.schedulers.Schedulers;
@@ -51,7 +53,10 @@ public class BrowsePresenter implements Presenter<BrowseActivity> {
 
     private BrowseActivity activity;
     private CompositeSubscription subscriptions;
+    private List<? extends TokenEntity> browseList;
+
     private boolean firstTimeAttaching = true;
+    private int scrollPosition = 0;
 
     @Override
     public void onViewAttached(BrowseActivity view) {
@@ -148,13 +153,19 @@ public class BrowsePresenter implements Presenter<BrowseActivity> {
     }
 
     private void fetchTopRatedApps() {
+        if (this.browseList != null && this.browseList.size() > 0) {
+            handleApps(this.browseList);
+            scrollToRetainedPosition();
+            return;
+        }
+
         final Subscription sub =
                 getAppManager()
                 .getTopRatedApps(100)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(
-                        apps -> getAdapter().setItems(apps),
+                        this::handleApps,
                         this::handleError
                 );
 
@@ -162,13 +173,19 @@ public class BrowsePresenter implements Presenter<BrowseActivity> {
     }
 
     private void fetchLatestApps() {
+        if (this.browseList != null && this.browseList.size() > 0) {
+            handleApps(this.browseList);
+            scrollToRetainedPosition();
+            return;
+        }
+
         final Subscription sub =
                 getAppManager()
                 .getLatestApps(100)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(
-                        apps -> getAdapter().setItems(apps),
+                        this::handleApps,
                         this::handleError
                 );
 
@@ -182,13 +199,24 @@ public class BrowsePresenter implements Presenter<BrowseActivity> {
                 .getAppsManager();
     }
 
+    private void handleApps(final List<? extends TokenEntity> apps) {
+        getAdapter().setItems(apps);
+        this.browseList = apps;
+    }
+
     private void fetchTopRatedPublicUsers() {
+        if (this.browseList != null && this.browseList.size() > 0) {
+            handleUsers(this.browseList);
+            scrollToRetainedPosition();
+            return;
+        }
+
         final Subscription sub =
                 getUserManager()
                 .getTopRatedPublicUsers(100)
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(
-                        users -> getAdapter().setItems(users),
+                        this::handleUsers,
                         this::handleError
                 );
 
@@ -196,12 +224,18 @@ public class BrowsePresenter implements Presenter<BrowseActivity> {
     }
 
     private void fetchLatestPublicUsers() {
+        if (this.browseList != null && this.browseList.size() > 0) {
+            handleUsers(this.browseList);
+            scrollToRetainedPosition();
+            return;
+        }
+
         final Subscription sub =
                 getUserManager()
                 .getLatestPublicUsers(100)
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(
-                        users -> getAdapter().setItems(users),
+                        this::handleUsers,
                         this::handleError
                 );
 
@@ -215,8 +249,17 @@ public class BrowsePresenter implements Presenter<BrowseActivity> {
                 .getUserManager();
     }
 
+    private void handleUsers(final List<? extends TokenEntity> users) {
+        getAdapter().setItems(users);
+        this.browseList = users;
+    }
+
     private BrowseAdapter getAdapter() {
         return (BrowseAdapter) this.activity.getBinding().browseList.getAdapter();
+    }
+
+    private void scrollToRetainedPosition() {
+        this.activity.getBinding().browseList.getLayoutManager().scrollToPosition(this.scrollPosition);
     }
 
     private void handleError(final Throwable throwable) {
@@ -225,8 +268,15 @@ public class BrowsePresenter implements Presenter<BrowseActivity> {
 
     @Override
     public void onViewDetached() {
+        setScrollState();
         this.subscriptions.clear();
         this.activity = null;
+    }
+
+    private void setScrollState() {
+        if (this.activity == null) return;
+        final LinearLayoutManager layoutManager = (LinearLayoutManager) this.activity.getBinding().browseList.getLayoutManager();
+        this.scrollPosition = layoutManager.findFirstCompletelyVisibleItemPosition();
     }
 
     @Override
